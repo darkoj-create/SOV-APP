@@ -6,8 +6,8 @@ Službeni GitHub release/update kanal za Android aplikaciju Speleološkog odsjek
 
 - Naziv aplikacije: **SOV 2.0**
 - Package/applicationId: `com.darko.speleov1admin`
-- Trenutni target: `versionCode 900160`
-- Trenutni target: `versionName 2.0.0-cloud-field-tracking`
+- Trenutni target: `versionCode 900161`
+- Trenutni target: `versionName 2.0.1-context-buildfix`
 
 Promjena naziva iz **SOV Admin** u **SOV 2.0** ne stvara novu aplikaciju. Postojeća instalacija se nadograđuje kada su ispunjena oba uvjeta:
 
@@ -20,10 +20,14 @@ Ako je APK potpisan drugim ključem, Android ga ne može instalirati preko posto
 
 Aplikacija provjerava `releases/latest` ovog repozitorija. Svaki release mora imati dva asseta:
 
-- potpisani APK, npr. `SOV-2.0-v2.0.0.apk`
+- potpisani APK, npr. `SOV-2.0-v2.0.1.apk`
 - `update.json`
 
 Primjer je u `release/update.json.example`.
+
+## 2.0.1 hotfix
+
+Vraća `SovClientLogger.setCurrentContext(...)` potreban za navigation crash context. Ne mijenja Field Tracking, Speleo Runner, DEM, Nacrte, podatke ni package ID.
 
 ## Važno
 
