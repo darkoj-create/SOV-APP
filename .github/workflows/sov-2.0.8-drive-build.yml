@@ -59,7 +59,7 @@ jobs:
           gdown 'https://drive.google.com/uc?id=1PENuBWAogit8iHZiqrqhfJKJhwUjf4qL' -O android-project/app/proguard-rules.pro
 
           # Source tree only; deliberately skip historical .git/.gradle/build/release directories.
-          gdown --folder 'https://drive.google.com/drive/folders/1hgtUWw0miFxWqMiA3gJ2MQrHdn4cxzRL' -O drive-src --remaining-ok
+          gdown --folder 'https://drive.google.com/drive/folders/1hgtUWw0miFxWqMiA3gJ2MQrHdn4cxzRL' -O drive-src
 
           if [ -d drive-src/main ]; then
             cp -a drive-src/. android-project/app/src/
