@@ -1,0 +1,116 @@
+name: SOV 2.0.8 Drive build validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/2.0.8-data-integrity
+    paths:
+      - '.github/workflows/sov-2.0.8-drive-build.yml'
+      - 'patches/2.0.8/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout CI metadata
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Install Drive downloader
+        run: python -m pip install --upgrade gdown
+
+      - name: Reconstruct clean Android project from Drive source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android-project drive-src fix-payload
+          mkdir -p android-project/app android-project/app/src drive-src fix-payload
+
+          # Current root project files from the full Drive working tree.
+          gdown 'https://drive.google.com/uc?id=1Gf07cgKq8X8af1SwJmsIdi4IpsCZ3xSN' -O android-project/build.gradle.kts
+          gdown 'https://drive.google.com/uc?id=1ceEC3OmWUv6nPWawPeHA41yUF7DqBjLy' -O android-project/settings.gradle.kts
+          gdown 'https://drive.google.com/uc?id=1bcvFPnMOkJ1bi6Uvknz21Y9d5OBGrHN4' -O android-project/gradle.properties
+
+          # App module config/support files.
+          gdown 'https://drive.google.com/uc?id=1T7GcXVzI0an_DdtcviCCvLHOgwoQ5ia1' -O android-project/app/build.gradle.kts
+          gdown 'https://drive.google.com/uc?id=1BM-At_WSLqJQoMtdn1ipGPshAwJsroDZ' -O android-project/app/google-services.json
+          gdown 'https://drive.google.com/uc?id=1PENuBWAogit8iHZiqrqhfJKJhwUjf4qL' -O android-project/app/proguard-rules.pro
+
+          # Source tree only; deliberately skip historical .git/.gradle/build/release directories.
+          gdown --folder 'https://drive.google.com/drive/folders/1hgtUWw0miFxWqMiA3gJ2MQrHdn4cxzRL' -O drive-src --remaining-ok
+
+          if [ -d drive-src/main ]; then
+            cp -a drive-src/. android-project/app/src/
+          elif [ -d drive-src/src/main ]; then
+            cp -a drive-src/src/. android-project/app/src/
+          else
+            echo 'Could not locate app/src/main after Drive download'
+            find drive-src -maxdepth 3 -type d -print
+            exit 2
+          fi
+
+          test -f android-project/app/src/main/AndroidManifest.xml
+          test -d android-project/app/src/main/java
+
+      - name: Apply final 2.0.8 overrides
+        shell: bash
+        run: |
+          set -euo pipefail
+          gdown 'https://drive.google.com/uc?id=1TJUVuAATgdB7ZspGnt0VrkvUqrAIybvg' -O fix-payload/SOV-2.0.8-FINAL-FIX.zip
+          unzip -q fix-payload/SOV-2.0.8-FINAL-FIX.zip -d fix-payload/unpacked
+          OVERRIDES="$(find fix-payload/unpacked -type d -name overrides | head -n1)"
+          test -n "$OVERRIDES"
+          cp -a "$OVERRIDES"/. android-project/
+
+          grep -q 'versionCode = 900168' android-project/app/build.gradle.kts
+          grep -q 'versionName = "2.0.8"' android-project/app/build.gradle.kts
+
+      - name: Show reconstructed project summary
+        shell: bash
+        run: |
+          echo "Kotlin files: $(find android-project/app/src -name '*.kt' | wc -l)"
+          echo "Resource files: $(find android-project/app/src/main/res -type f 2>/dev/null | wc -l)"
+          echo "Asset files: $(find android-project/app/src/main/assets -type f 2>/dev/null | wc -l)"
+          du -sh android-project
+
+      - name: Compile debug APK
+        working-directory: android-project
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Compile release variant
+        working-directory: android-project
+        run: gradle --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Upload APK outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOV-2.0.8-apk-build-outputs
+          path: |
+            android-project/app/build/outputs/apk/debug/*.apk
+            android-project/app/build/outputs/apk/release/*.apk
+            android-project/app/build/outputs/mapping/release/**
+          if-no-files-found: warn
+          retention-days: 14
