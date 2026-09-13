@@ -45,8 +45,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf android-project drive-src fix-payload
-          mkdir -p android-project/app android-project/app/src drive-src fix-payload
+          rm -rf android-project drive-src fix-payload wow-payload
+          mkdir -p android-project/app android-project/app/src drive-src fix-payload wow-payload
 
           # Current root project files from the full Drive working tree.
           gdown 'https://drive.google.com/uc?id=1Gf07cgKq8X8af1SwJmsIdi4IpsCZ3xSN' -O android-project/build.gradle.kts
@@ -87,6 +87,18 @@ jobs:
           grep -q 'versionCode = 900168' android-project/app/build.gradle.kts
           grep -q 'versionName = "2.0.8"' android-project/app/build.gradle.kts
 
+      - name: Apply Speleo Runner WOW patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          gdown 'https://drive.google.com/uc?id=1mvCZnP8mj75yCjE65Q2oreRg_4jOmV0k' -O wow-payload/SOV-2.0.8-SPELEO-RUNNER-WOW-PATCH.zip
+          unzip -q wow-payload/SOV-2.0.8-SPELEO-RUNNER-WOW-PATCH.zip -d wow-payload/unpacked
+          WOW_OVERRIDES="$(find wow-payload/unpacked -type d -name overrides | head -n1)"
+          test -n "$WOW_OVERRIDES"
+          cp -a "$WOW_OVERRIDES"/. android-project/
+          grep -q 'EKSPEDICIJA ZAVRŠENA' android-project/app/src/main/java/com/darko/speleov1/SpeleoRunnerScreen.kt
+          grep -q 'FLOW ×' android-project/app/src/main/java/com/darko/speleov1/SpeleoRunnerScreen.kt
+
       - name: Show reconstructed project summary
         shell: bash
         run: |
@@ -107,7 +119,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: SOV-2.0.8-apk-build-outputs
+          name: SOV-2.0.8-runner-wow-apk-build-outputs
           path: |
             android-project/app/build/outputs/apk/debug/*.apk
             android-project/app/build/outputs/apk/release/*.apk
